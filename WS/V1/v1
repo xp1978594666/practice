@@ -1,0 +1,232 @@
+# 一  实验讲解：
+1. 实验目的
+	- 通过socket方式建立WebServer项目，能够正确解析HTTP方式访问并根据访问内容做出正确反馈。 
+	- 通过实验使学生深刻理解HTTP协议
+	- 复习前端知识，主要是HTML知识
+2. 实验步骤：
+	- 采取里程碑方式开发，每一个阶段创建一个单独项目，用来比对
+
+# 二 创建项目
+- 选择创建一个空python项目
+- 添加一个python文件，名称为sw_server.py
+
+# 三 建立程序主流程，不关注功能
+ 
+
+```python
+ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.bind( ("127.0.0.1", 9999))
+sock.listen() # 参数backlog表明阻塞队列的长度， n+1
+
+skt,addr = sock.accept()
+
+lines = getAllLine(skt)
+for line in lines:
+    print(line)
+
+
+skt.close()
+sock.close()
+```
+
+# 四  添加处理函数 getLine
+- Http访问是按行组织信息，程序需要可以按行读出每一行内容
+
+```python
+
+def getLine(sock):
+
+    b1 = sock.recv(1)
+    b2 = 0
+    data = b''
+
+    while  b2 != b'\r' and b1 != b'\n' :
+        b2 = b1
+        b1 = sock.recv(1)
+        if not b1:
+            return str(data)
+        data += bytes(b2)
+
+    return data.strip(b'\r')
+```
+
+#  五 添加读取所有输入功能
+- 添加函数，能够读取一次访问socket的多有头信息
+
+```python
+
+def getAllLine(sock):
+
+    data = b''
+    dataList = list()
+    data = b''
+
+    while True:
+        data = getLine(sock)
+        if data:
+            dataList.append(data)
+        else:
+            return dataList
+```
+# 六 添加反馈功能
+- 在主程序添加反馈文字，代码如下
+```python
+rsp = "hello world"
+byteRsp = rsp.encode('ASCII')
+skt.send(byteRsp)
+```
+
+- 做成函数sendRspLine(sock, data)，同时取消反馈代码，改成对函数的调用
+```python
+ def sendRspLine(sock, data):
+    sock.send(data.encode("ASCII"))
+    return None
+```
+ 
+ - 主程序代码如下：
+```python
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.bind( ("127.0.0.1", 9999))
+sock.listen() # 参数backlog表明阻塞队列的长度， n+1
+
+skt,addr = sock.accept()
+
+lines = getAllLine(skt)
+
+for line in lines:
+    print(line)
+
+hw = "Hello World"
+sendRspLine(skt, hw)
+
+skt.close()
+sock.close()
+```
+
+# 七 整理反馈为标准HTTP反馈
+- 添加函数，能反馈每一行内容
+```python
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.bind( ("127.0.0.1", 9999))
+sock.listen() # 参数backlog表明阻塞队列的长度， n+1
+
+skt,addr = sock.accept()
+
+lines = getAllLine(skt)
+for line in lines:
+    print(line)
+
+hw = "Hello World"
+sendRspLine(skt, hw)
+
+skt.close()
+sock.close()
+```
+
+- 添加完整反馈函数，一次性把整个HTTP返回内容全部反馈，代码如下：
+```python
+def sendRspAll(sock, data):
+
+    sendRspLine(sock, "HTTP/1.1 200 OK")
+
+    strRsp = "Content-Length: "
+    strRsp += str(len(data))
+    sendRspLine(sock, strRsp )
+
+    sendRspLine(sock, "Content-Type: text/html")
+
+    sendRspLine(sock, "")
+    sendRspLine(sock, data)
+```
+- 修改主程序，调用sendRspAll
+```python
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.bind( ("127.0.0.1", 9999))
+sock.listen() # 参数backlog表明阻塞队列的长度， n+1
+
+skt,addr = sock.accept()
+
+lines = getAllLine(skt)
+for line in lines:
+    print(line)
+
+hw = "Hello World"
+sendRspAll(skt, hw)
+
+skt.close()
+sock.close()
+```
+
+# 八  完整代码
+```python
+import socket
+
+
+def getLine(sock):
+
+    b1 = sock.recv(1)
+    b2 = 0
+    data = b''
+
+    while  b2 != b'\r' and b1 != b'\n' :
+        b2 = b1
+        b1 = sock.recv(1)
+        if not b1:
+            return str(data)
+        data += bytes(b2)
+
+    return data.strip(b'\r')
+
+
+def getAllLine(sock):
+
+    data = b''
+    dataList = list()
+    data = b''
+
+    while True:
+        data = getLine(sock)
+        if data:
+            dataList.append(data)
+        else:
+            return dataList
+
+def sendRspLine(sock, data):
+
+    data += "\r\n"
+    sock.send(data.encode("ASCII"))
+    return None
+
+
+def sendRspAll(sock, data):
+
+    sendRspLine(sock, "HTTP/1.1 200 OK")
+
+    strRsp = "Content-Length: "
+    strRsp += str(len(data))
+    sendRspLine(sock, strRsp )
+
+    sendRspLine(sock, "Content-Type: text/html")
+
+    sendRspLine(sock, "")
+    sendRspLine(sock, data)
+
+
+
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.bind( ("127.0.0.1", 9999))
+sock.listen() # 参数backlog表明阻塞队列的长度， n+1
+
+skt,addr = sock.accept()
+
+lines = getAllLine(skt)
+for line in lines:
+    print(line)
+
+hw = "Hello World"
+sendRspAll(skt, hw)
+
+skt.close()
+sock.close()
+```
